@@ -1,0 +1,21 @@
+{
+    "name": "카투사 규정 안내서",
+    "short_name": "카투사 규정",
+    "description": "KATUSA Regulations (USFK Reg 600-2)",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#1e40af",
+    "theme_color": "#1e40af",
+    "icons": [
+        {
+            "src": "images/katusa_roka_emblem.jpg",
+            "sizes": "192x192",
+            "type": "image/jpeg"
+        },
+        {
+            "src": "images/katusa_roka_emblem.jpg",
+            "sizes": "512x512",
+            "type": "image/jpeg"
+        }
+    ]
+}

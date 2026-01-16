@@ -26,7 +26,7 @@ var chapterList, contentDisplay, welcomeScreen, searchResults, chapterTitle, cha
 var sectionButtons, sectionContent, searchInput, searchBtn, darkModeToggle, menuToggle;
 var sidebar, sidebarOverlay, scrollTopBtn, loadingScreen, breadcrumb, breadcrumbChapter;
 var breadcrumbSection, breadcrumbSep2, readingProgress, fontSizeToggle, fontSizePanel;
-var printBtn, bookmarkChapterBtn, closeSearchBtn, prevSectionBtn, nextSectionBtn, quickNavGrid;
+var printBtn, bookmarkChapterBtn, closeSearchBtn, prevSectionBtn, nextSectionBtn, quickNavGrid, downloadBtn;
 
 function cacheElements() {
     chapterList = document.getElementById('chapterList');
@@ -53,6 +53,7 @@ function cacheElements() {
     fontSizeToggle = document.getElementById('fontSizeToggle');
     fontSizePanel = document.getElementById('fontSizePanel');
     printBtn = document.getElementById('printBtn');
+    downloadBtn = document.getElementById('downloadBtn');
     bookmarkChapterBtn = document.getElementById('bookmarkChapterBtn');
     closeSearchBtn = document.getElementById('closeSearch');
     prevSectionBtn = document.getElementById('prevSection');
@@ -319,6 +320,24 @@ function handleScroll() {
     if (height > 0) readingProgress.style.width = ((winScroll / height) * 100) + '%';
 }
 
+function downloadContent() {
+    if (currentChapter === null) return;
+    var ch = window.chapters[currentChapter];
+    var sec = ch.sections[currentSection];
+    var text = "KATUSA Regulations (USFK Reg 600-2)\n\n" +
+        "Chapter: " + ch.title + "\n" +
+        "Section: " + sec.title + "\n\n" +
+        sec.content;
+
+    var blob = new Blob([text], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "KATUSA_" + (currentChapter + 1) + "_" + (currentSection + 1) + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
 function setupEventListeners() {
     if (searchBtn) searchBtn.onclick = performSearch;
     if (darkModeToggle) darkModeToggle.onclick = toggleDarkMode;
@@ -331,6 +350,8 @@ function setupEventListeners() {
     if (bookmarkChapterBtn) bookmarkChapterBtn.onclick = toggleBookmark;
     if (prevSectionBtn) prevSectionBtn.onclick = navigatePrev;
     if (nextSectionBtn) nextSectionBtn.onclick = navigateNext;
+    if (printBtn) printBtn.onclick = function () { window.print(); };
+    if (downloadBtn) downloadBtn.onclick = downloadContent;
 
     window.onscroll = handleScroll;
 
@@ -386,6 +407,17 @@ function toggleBookmark() {
     storage.setItem('katusaBookmarks', JSON.stringify(bookmarks));
     updateBookmarkBtn();
     updateBookmarkList();
+}
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./service-worker.js').then(function (reg) {
+            console.log('SW Registered');
+        }).catch(function (err) {
+            console.log('SW Failed', err);
+        });
+    });
 }
 
 window.onload = function () {
