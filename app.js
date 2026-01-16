@@ -75,6 +75,12 @@ var chapterDescriptions = [
 // ===== Initialize App =====
 function init() {
     cacheElements();
+
+    // Ensure data is loaded from window.chapters
+    if (!window.chapters && typeof chapters !== 'undefined') {
+        window.chapters = chapters;
+    }
+
     try {
         renderChapterList();
         renderQuickNav();
@@ -93,7 +99,7 @@ function init() {
             loadingScreen.style.opacity = '0';
             setTimeout(function () { loadingScreen.style.display = 'none'; }, 500);
         }
-    }, 1200);
+    }, 1000);
 }
 
 // ===== Rendering =====
@@ -138,7 +144,6 @@ function selectChapter(index) {
     currentChapter = index;
     currentSection = 0;
 
-    // UI Updates
     var btns = document.querySelectorAll('.chapter-btn');
     for (var i = 0; i < btns.length; i++) {
         btns[i].classList.remove('active');
@@ -272,6 +277,12 @@ function setFontSize(size) {
     document.body.classList.add('font-' + size);
     storage.setItem('fontSize', size);
     if (fontSizePanel) fontSizePanel.style.display = 'none';
+
+    var btns = document.querySelectorAll('.font-size-options button');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove('active');
+        if (btns[i].getAttribute('onclick').indexOf(size) > -1) btns[i].classList.add('active');
+    }
 }
 
 function loadFontSizePreference() {
@@ -289,7 +300,7 @@ function updateBookmarkBtn() {
 function updateBookmarkList() {
     var list = document.getElementById('bookmarkList');
     if (!list) return;
-    if (bookmarks.length === 0) { list.innerHTML = '<li>목록 없음</li>'; return; }
+    if (bookmarks.length === 0) { list.innerHTML = '<li class="empty-bookmark">저장된 북마크가 없습니다</li>'; return; }
     var html = '';
     for (var i = 0; i < bookmarks.length; i++) {
         var b = bookmarks[i];
@@ -301,8 +312,11 @@ function updateBookmarkList() {
 function goToResult(c, s) { selectChapter(c); setTimeout(function () { showSection(s); }, 150); }
 
 function handleScroll() {
-    if (!scrollTopBtn) return;
-    scrollTopBtn.classList.toggle('visible', window.pageYOffset > 300);
+    if (!scrollTopBtn || !readingProgress) return;
+    scrollTopBtn.classList.toggle('visible', (window.pageYOffset || document.documentElement.scrollTop) > 300);
+    var winScroll = document.documentElement.scrollTop || window.pageYOffset;
+    var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    if (height > 0) readingProgress.style.width = ((winScroll / height) * 100) + '%';
 }
 
 function setupEventListeners() {
@@ -319,6 +333,12 @@ function setupEventListeners() {
     if (nextSectionBtn) nextSectionBtn.onclick = navigateNext;
 
     window.onscroll = handleScroll;
+
+    document.onclick = function (e) {
+        if (fontSizePanel && fontSizePanel.style.display === 'block' && !fontSizePanel.contains(e.target) && e.target !== fontSizeToggle) {
+            fontSizePanel.style.display = 'none';
+        }
+    };
 }
 
 function performSearch() {
@@ -343,7 +363,7 @@ function displaySearchResults(res, q) {
     if (breadcrumb) breadcrumb.style.display = 'none';
     var list = document.getElementById('searchResultsList');
     if (!list) return;
-    if (res.length === 0) { list.innerHTML = '<p>결과 없음</p>'; }
+    if (res.length === 0) { list.innerHTML = '<p style="padding:2rem;text-align:center;">결과가 없습니다.</p>'; }
     else {
         var html = '';
         for (var i = 0; i < res.length; i++) {
@@ -353,6 +373,7 @@ function displaySearchResults(res, q) {
         list.innerHTML = html;
     }
     closeSidebar();
+    window.scrollTo(0, 0);
 }
 
 function toggleBookmark() {
@@ -367,4 +388,6 @@ function toggleBookmark() {
     updateBookmarkList();
 }
 
-window.onload = init;
+window.onload = function () {
+    init();
+};
