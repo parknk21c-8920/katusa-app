@@ -395,8 +395,6 @@ body {
     border: none;
     color: var(--text-sidebar);
     border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 0.9rem;
     transition: var(--transition);
     display: flex;
     align-items: center;

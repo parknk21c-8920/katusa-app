@@ -3,14 +3,18 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>카투사 규정 - KATUSA Regulations | 주한미군 규정 600-2</title>
-    <meta name="description" content="카투사(KATUSA) 규정 안내서 - 주한 미 육군 규정 600-2. 인사관리, 훈련, 군수관리 등 모든 규정을 검색하고 확인하세요.">
+    <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <!-- 중요: data.js를 먼저 불러오고 app.js를 불러와야 합니다. -->
+    <script src="data.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 
 <body>
@@ -43,39 +47,12 @@
             <div class="header-right">
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="규정 검색..." aria-label="검색">
-                    <button id="searchBtn" aria-label="검색">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="m21 21-4.35-4.35"></path>
-                        </svg>
-                    </button>
+                    <button id="searchBtn" aria-label="검색">🔍</button>
                 </div>
                 <div class="header-controls">
-                    <button id="fontSizeToggle" class="control-btn" title="글자 크기">
-                        <span>가</span>
-                    </button>
-                    <button id="printBtn" class="control-btn" title="인쇄">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M6 9V2h12v7"></path>
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                            <rect x="6" y="14" width="12" height="8"></rect>
-                        </svg>
-                    </button>
-                    <button id="darkModeToggle" class="control-btn" title="다크 모드">
-                        <svg id="darkIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                        </svg>
-                        <svg id="lightIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" style="display:none;">
-                            <circle cx="12" cy="12" r="5"></circle>
-                            <path
-                                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42">
-                            </path>
-                        </svg>
-                    </button>
+                    <button id="fontSizeToggle" class="control-btn">가</button>
+                    <button id="printBtn" class="control-btn">⎙</button>
+                    <button id="darkModeToggle" class="control-btn">🌙</button>
                 </div>
             </div>
         </header>
@@ -89,17 +66,13 @@
                 <div class="sidebar-header">
                     <img src="images/katusa_roka_emblem.jpg" alt="KATUSA Emblem" class="sidebar-emblem">
                     <h2>규정 목차</h2>
-                    <p class="sidebar-desc">총 7개 장으로 구성</p>
+                    <p class="sidebar-desc">총 7개 장</p>
                 </div>
-                <ul class="chapter-list" id="chapterList">
-                    <!-- Chapters will be loaded here -->
-                </ul>
+                <ul class="chapter-list" id="chapterList"></ul>
                 <div class="sidebar-footer">
                     <div class="bookmark-section">
                         <h3>📌 북마크</h3>
-                        <ul id="bookmarkList" class="bookmark-list">
-                            <li class="empty-bookmark">저장된 북마크가 없습니다</li>
-                        </ul>
+                        <ul id="bookmarkList" class="bookmark-list"></ul>
                     </div>
                 </div>
             </nav>
@@ -128,63 +101,34 @@
                         </div>
                         <h2>카투사 규정 안내서</h2>
                         <p class="welcome-tagline">주한 미 육군 규정 600-2</p>
-                        <p class="welcome-desc">KATUSA 제도의 인사관리, 훈련, 군수관리 등<br>모든 규정을 쉽게 검색하고 확인하세요.</p>
+                        <p class="welcome-desc">인사관리, 훈련, 군수관리 등<br>모든 규정을 쉽게 확인하세요.</p>
                     </div>
 
                     <div class="stats-row">
                         <div class="stat-card">
                             <span class="stat-number">7</span>
-                            <span class="stat-label">총 장(Chapter)</span>
+                            <span class="stat-label">총 챕터</span>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-number" id="totalSections">39</span>
-                            <span class="stat-label">총 조항(Section)</span>
+                            <span class="stat-number" id="totalSections">-</span>
+                            <span class="stat-label">총 조항</span>
                         </div>
                         <div class="stat-card">
                             <span class="stat-number">1950</span>
-                            <span class="stat-label">제도 시작년도</span>
+                            <span class="stat-label">시작년도</span>
                         </div>
                     </div>
 
                     <div class="qr-section">
                         <div class="qr-container">
                             <img src="images/qrcode_600_2.jpg" alt="QR Code" class="welcome-qr">
-                            <p>모바일에서도 접속하여<br>규정을 확인하세요 (600-2)</p>
+                            <p>QR 코드로 모바일 접속</p>
                         </div>
                     </div>
 
                     <div class="quick-nav">
                         <h3>빠른 이동</h3>
-                        <div class="quick-nav-grid" id="quickNavGrid">
-                            <!-- Quick nav buttons will be loaded here -->
-                        </div>
-                    </div>
-
-                    <div class="recent-updates">
-                        <h3>📋 주요 규정 안내</h3>
-                        <div class="update-cards">
-                            <div class="update-card" onclick="selectChapter(3); showSection(3);">
-                                <span class="update-icon">📅</span>
-                                <div class="update-content">
-                                    <h4>휴가 및 외출</h4>
-                                    <p>정기휴가, 청원휴가, 외출 규정 확인</p>
-                                </div>
-                            </div>
-                            <div class="update-card" onclick="selectChapter(2); showSection(6);">
-                                <span class="update-icon">⭐</span>
-                                <div class="update-content">
-                                    <h4>진급 규정</h4>
-                                    <p>병장 진급 요건 및 절차</p>
-                                </div>
-                            </div>
-                            <div class="update-card" onclick="selectChapter(5); showSection(4);">
-                                <span class="update-icon">🎓</span>
-                                <div class="update-content">
-                                    <h4>전역병 교육</h4>
-                                    <p>전역 전 필수 교육 안내</p>
-                                </div>
-                            </div>
-                        </div>
+                        <div id="quickNavGrid" class="quick-nav-grid"></div>
                     </div>
                 </div>
 
@@ -198,36 +142,15 @@
                             <h2 id="chapterTitle"></h2>
                             <p id="chapterDesc" class="chapter-desc"></p>
                         </div>
-                        <button id="bookmarkChapterBtn" class="bookmark-btn" title="북마크 추가">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                        </button>
+                        <button id="bookmarkChapterBtn" class="bookmark-btn">🔖</button>
                     </div>
-                    <div class="section-buttons" id="sectionButtons">
-                        <!-- Section buttons will be loaded here -->
-                    </div>
-                    <div class="section-content" id="sectionContent">
-                        <!-- Section content will be loaded here -->
-                    </div>
+                    <div class="section-buttons" id="sectionButtons"></div>
+                    <div class="section-content" id="sectionContent"></div>
 
                     <!-- Navigation Arrows -->
                     <div class="content-navigation">
-                        <button id="prevSection" class="nav-arrow prev" title="이전 섹션">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M15 18l-6-6 6-6"></path>
-                            </svg>
-                            <span>이전</span>
-                        </button>
-                        <button id="nextSection" class="nav-arrow next" title="다음 섹션">
-                            <span>다음</span>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path d="M9 18l6-6-6-6"></path>
-                            </svg>
-                        </button>
+                        <button id="prevSection" class="nav-arrow prev">이전</button>
+                        <button id="nextSection" class="nav-arrow next">다음</button>
                     </div>
                 </div>
 
@@ -235,7 +158,7 @@
                 <div class="search-results" id="searchResults" style="display:none;">
                     <div class="search-results-header">
                         <h2>🔍 검색 결과</h2>
-                        <button id="closeSearch" class="close-btn" title="닫기">✕</button>
+                        <button id="closeSearch" class="close-btn">✕</button>
                     </div>
                     <div id="searchResultsList"></div>
                 </div>
@@ -243,25 +166,18 @@
         </div>
 
         <!-- Scroll to Top Button -->
-        <button id="scrollTop" class="scroll-top" title="맨 위로">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 15l-6-6-6 6"></path>
-            </svg>
-        </button>
+        <button id="scrollTop" class="scroll-top">▲</button>
 
         <!-- Font Size Panel -->
         <div id="fontSizePanel" class="font-size-panel" style="display:none;">
             <h4>글자 크기</h4>
             <div class="font-size-options">
-                <button onclick="setFontSize('small')" data-size="small">작게</button>
-                <button onclick="setFontSize('medium')" data-size="medium" class="active">보통</button>
-                <button onclick="setFontSize('large')" data-size="large">크게</button>
+                <button onclick="setFontSize('small')">작게</button>
+                <button onclick="setFontSize('medium')" class="active">보통</button>
+                <button onclick="setFontSize('large')">크게</button>
             </div>
         </div>
     </div>
-
-    <script src="data.js"></script>
-    <script src="app.js"></script>
 </body>
 
 </html>

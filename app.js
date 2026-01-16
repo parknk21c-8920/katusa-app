@@ -1,68 +1,68 @@
 // ===== App State =====
-let currentChapter = null;
-let currentSection = null;
-let bookmarks = [];
+var currentChapter = null;
+var currentSection = null;
+var bookmarks = [];
 
-// LocalStorage safety check (fixes KakaoTalk/Mobile browser "SecurityError")
-const storage = {
-    getItem: (key) => {
-        try {
-            return localStorage.getItem(key);
-        } catch (e) {
-            return null;
-        }
+// LocalStorage safety check
+var storage = {
+    getItem: function (key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
     },
-    setItem: (key, value) => {
-        try {
-            localStorage.setItem(key, value);
-        } catch (e) {
-            // fail silently
-        }
+    setItem: function (key, value) {
+        try { localStorage.setItem(key, value); } catch (e) { }
     }
 };
 
 // Load initial bookmarks
 try {
-    const saved = storage.getItem('katusaBookmarks');
+    var saved = storage.getItem('katusaBookmarks');
     bookmarks = saved ? JSON.parse(saved) : [];
 } catch (e) {
     bookmarks = [];
 }
 
 // ===== DOM Elements =====
-const chapterList = document.getElementById('chapterList');
-const contentDisplay = document.getElementById('contentDisplay');
-const welcomeScreen = document.getElementById('welcomeScreen');
-const searchResults = document.getElementById('searchResults');
-const chapterTitle = document.getElementById('chapterTitle');
-const chapterDesc = document.getElementById('chapterDesc');
-const sectionButtons = document.getElementById('sectionButtons');
-const sectionContent = document.getElementById('sectionContent');
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const darkModeToggle = document.getElementById('darkModeToggle');
-const menuToggle = document.getElementById('menuToggle');
-const sidebar = document.getElementById('sidebar');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
-const scrollTopBtn = document.getElementById('scrollTop');
-const loadingScreen = document.getElementById('loadingScreen');
-const breadcrumb = document.getElementById('breadcrumb');
-const breadcrumbChapter = document.getElementById('breadcrumbChapter');
-const breadcrumbSection = document.getElementById('breadcrumbSection');
-const breadcrumbSep2 = document.getElementById('breadcrumbSep2');
-const readingProgress = document.getElementById('readingProgress');
-const fontSizeToggle = document.getElementById('fontSizeToggle');
-const fontSizePanel = document.getElementById('fontSizePanel');
-const printBtn = document.getElementById('printBtn');
-const bookmarkChapterBtn = document.getElementById('bookmarkChapterBtn');
-const closeSearchBtn = document.getElementById('closeSearch');
-const prevSectionBtn = document.getElementById('prevSection');
-const nextSectionBtn = document.getElementById('nextSection');
-const quickNavGrid = document.getElementById('quickNavGrid');
+var chapterList, contentDisplay, welcomeScreen, searchResults, chapterTitle, chapterDesc;
+var sectionButtons, sectionContent, searchInput, searchBtn, darkModeToggle, menuToggle;
+var sidebar, sidebarOverlay, scrollTopBtn, loadingScreen, breadcrumb, breadcrumbChapter;
+var breadcrumbSection, breadcrumbSep2, readingProgress, fontSizeToggle, fontSizePanel;
+var printBtn, bookmarkChapterBtn, closeSearchBtn, prevSectionBtn, nextSectionBtn, quickNavGrid;
 
-// Chapter Icons
-const chapterIcons = ['📋', '📜', '👥', '📝', '💼', '🎯', '📦'];
-const chapterDescriptions = [
+function cacheElements() {
+    chapterList = document.getElementById('chapterList');
+    contentDisplay = document.getElementById('contentDisplay');
+    welcomeScreen = document.getElementById('welcomeScreen');
+    searchResults = document.getElementById('searchResults');
+    chapterTitle = document.getElementById('chapterTitle');
+    chapterDesc = document.getElementById('chapterDesc');
+    sectionButtons = document.getElementById('sectionButtons');
+    sectionContent = document.getElementById('sectionContent');
+    searchInput = document.getElementById('searchInput');
+    searchBtn = document.getElementById('searchBtn');
+    darkModeToggle = document.getElementById('darkModeToggle');
+    menuToggle = document.getElementById('menuToggle');
+    sidebar = document.getElementById('sidebar');
+    sidebarOverlay = document.getElementById('sidebarOverlay');
+    scrollTopBtn = document.getElementById('scrollTop');
+    loadingScreen = document.getElementById('loadingScreen');
+    breadcrumb = document.getElementById('breadcrumb');
+    breadcrumbChapter = document.getElementById('breadcrumbChapter');
+    breadcrumbSection = document.getElementById('breadcrumbSection');
+    breadcrumbSep2 = document.getElementById('breadcrumbSep2');
+    readingProgress = document.getElementById('readingProgress');
+    fontSizeToggle = document.getElementById('fontSizeToggle');
+    fontSizePanel = document.getElementById('fontSizePanel');
+    printBtn = document.getElementById('printBtn');
+    bookmarkChapterBtn = document.getElementById('bookmarkChapterBtn');
+    closeSearchBtn = document.getElementById('closeSearch');
+    prevSectionBtn = document.getElementById('prevSection');
+    nextSectionBtn = document.getElementById('nextSection');
+    quickNavGrid = document.getElementById('quickNavGrid');
+}
+
+// Chapter Icons & Descriptions
+var chapterIcons = ['📋', '📜', '👥', '📝', '💼', '🎯', '📦'];
+var chapterDescriptions = [
     '규정의 목적, 참고 문헌, 용어 설명',
     '카투사 제도의 역사, 사명, 책임',
     '인력 인가, 자격 요건, 복무기간',
@@ -74,6 +74,7 @@ const chapterDescriptions = [
 
 // ===== Initialize App =====
 function init() {
+    cacheElements();
     try {
         renderChapterList();
         renderQuickNav();
@@ -83,73 +84,74 @@ function init() {
         updateBookmarkList();
         calculateTotalSections();
     } catch (err) {
-        console.warn("Init Warning:", err);
+        console.log("App Init Error:", err);
     }
 
-    // Safety check: hide loading screen regardless
-    setTimeout(() => {
+    // Safety Force Hide Loading
+    setTimeout(function () {
         if (loadingScreen) {
             loadingScreen.style.opacity = '0';
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 500);
+            setTimeout(function () { loadingScreen.style.display = 'none'; }, 500);
         }
-    }, 1000);
+    }, 1200);
 }
 
-// ===== Render Functions =====
+// ===== Rendering =====
 function renderChapterList() {
     if (!chapterList || !window.chapters) return;
-    chapterList.innerHTML = window.chapters.map((chapter, index) => `
-        <li class="chapter-item">
-            <button class="chapter-btn" onclick="selectChapter(${index})" data-chapter="${index}">
-                <span class="chapter-icon">${chapterIcons[index] || '📄'}</span>
-                <span class="chapter-title-text">${chapter.title}</span>
-                <span class="chapter-number">${chapter.sections.length}</span>
-            </button>
-        </li>
-    `).join('');
+    var html = '';
+    for (var i = 0; i < window.chapters.length; i++) {
+        var ch = window.chapters[i];
+        html += '<li class="chapter-item">' +
+            '<button class="chapter-btn" onclick="selectChapter(' + i + ')">' +
+            '<span class="chapter-icon">' + (chapterIcons[i] || '📄') + '</span>' +
+            '<span>' + ch.title + '</span>' +
+            '<span class="chapter-number">' + ch.sections.length + '</span>' +
+            '</button></li>';
+    }
+    chapterList.innerHTML = html;
 }
 
 function renderQuickNav() {
     if (!quickNavGrid || !window.chapters) return;
-    quickNavGrid.innerHTML = window.chapters.map((chapter, index) => `
-        <button class="quick-btn" onclick="selectChapter(${index})">
-            <span class="icon">${chapterIcons[index] || '📄'}</span>
-            <span>${chapter.title.split('(')[0].trim()}</span>
-        </button>
-    `).join('');
+    var html = '';
+    for (var i = 0; i < window.chapters.length; i++) {
+        var ch = window.chapters[i];
+        html += '<button class="quick-btn" onclick="selectChapter(' + i + ')">' +
+            '<span class="icon">' + (chapterIcons[i] || '📄') + '</span>' +
+            '<span>' + ch.title.split('(')[0] + '</span></button>';
+    }
+    quickNavGrid.innerHTML = html;
 }
 
 function calculateTotalSections() {
-    const el = document.getElementById('totalSections');
+    var el = document.getElementById('totalSections');
     if (!el || !window.chapters) return;
-    const total = window.chapters.reduce((sum, ch) => sum + ch.sections.length, 0);
+    var total = 0;
+    for (var i = 0; i < window.chapters.length; i++) { total += window.chapters[i].sections.length; }
     el.textContent = total;
 }
 
-// ===== Main Actions =====
+// ===== Core Logic =====
 function selectChapter(index) {
     if (!window.chapters || !window.chapters[index]) return;
-
     currentChapter = index;
     currentSection = 0;
 
-    // Sidebar Active State
-    document.querySelectorAll('.chapter-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', i === index);
-    });
+    // UI Updates
+    var btns = document.querySelectorAll('.chapter-btn');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove('active');
+        if (i === index) btns[i].classList.add('active');
+    }
 
-    // Toggle Views
     if (welcomeScreen) welcomeScreen.style.display = 'none';
     if (searchResults) searchResults.style.display = 'none';
     if (contentDisplay) contentDisplay.style.display = 'block';
 
-    // Update Titles
     if (chapterTitle) chapterTitle.textContent = window.chapters[index].title;
     if (chapterDesc) chapterDesc.textContent = chapterDescriptions[index] || '';
 
-    // Breadcrumb
     if (breadcrumb) breadcrumb.style.display = 'flex';
     if (breadcrumbChapter) breadcrumbChapter.textContent = window.chapters[index].title;
     if (breadcrumbSep2) breadcrumbSep2.style.display = 'none';
@@ -159,80 +161,78 @@ function selectChapter(index) {
     renderSectionButtons(index);
     showSection(0);
     closeSidebar();
-
-    // Reset Scroll - Simple version for mobile compatibility
     window.scrollTo(0, 0);
 }
 
 function renderSectionButtons(chapterIndex) {
-    if (!sectionButtons || !window.chapters[chapterIndex]) return;
-    const chapter = window.chapters[chapterIndex];
-    sectionButtons.innerHTML = chapter.sections.map((section, index) => `
-        <button class="section-btn ${index === 0 ? 'active' : ''}" onclick="showSection(${index})" data-section="${index}">
-            ${section.title}
-        </button>
-    `).join('');
+    if (!sectionButtons) return;
+    var sections = window.chapters[chapterIndex].sections;
+    var html = '';
+    for (var i = 0; i < sections.length; i++) {
+        html += '<button class="section-btn ' + (i === 0 ? 'active' : '') + '" onclick="showSection(' + i + ')">' +
+            sections[i].title + '</button>';
+    }
+    sectionButtons.innerHTML = html;
 }
 
 function showSection(index) {
     if (currentChapter === null || !window.chapters[currentChapter].sections[index]) return;
-
     currentSection = index;
-    const section = window.chapters[currentChapter].sections[index];
+    var section = window.chapters[currentChapter].sections[index];
 
-    // Buttons Active State
-    document.querySelectorAll('.section-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', i === index);
-    });
+    var btns = document.querySelectorAll('.section-btn');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove('active');
+        if (i === index) btns[i].classList.add('active');
+    }
 
-    // Breadcrumb Section
     if (breadcrumbSep2) breadcrumbSep2.style.display = 'inline';
     if (breadcrumbSection) breadcrumbSection.textContent = section.title;
 
-    // Content Display
     if (sectionContent) {
-        sectionContent.innerHTML = `
-            <h3>${section.title}</h3>
-            <div class="section-text">${formatContent(section.content)}</div>
-        `;
+        sectionContent.innerHTML = '<h3>' + section.title + '</h3>' +
+            '<div class="section-text">' + formatContent(section.content) + '</div>';
     }
 
     updateNavButtons();
-
-    // Jump to content top (safe version)
-    if (contentDisplay) {
-        contentDisplay.scrollIntoView();
-    }
+    if (contentDisplay) contentDisplay.scrollIntoView();
 }
 
 function formatContent(content) {
     if (!content) return '<p>내용이 없습니다.</p>';
-    const paragraphs = content.split('\n\n');
-    return paragraphs.map(para => {
-        if (para.trim().startsWith('-') || para.trim().startsWith('•')) {
-            const items = para.split('\n').filter(item => item.trim());
-            return '<ul>' + items.map(item => `<li>${item.replace(/^[-•]\s*/, '')}</li>`).join('') + '</ul>';
+    var paragraphs = content.split('\n\n');
+    var result = '';
+    for (var i = 0; i < paragraphs.length; i++) {
+        var para = paragraphs[i].trim();
+        if (para.indexOf('-') === 0 || para.indexOf('•') === 0) {
+            var items = para.split('\n');
+            result += '<ul>';
+            for (var j = 0; j < items.length; j++) {
+                if (items[j].trim()) result += '<li>' + items[j].replace(/^[-•]\s*/, '') + '</li>';
+            }
+            result += '</ul>';
+        } else if (para.match(/^\d+[\.\)]\s/)) {
+            var items = para.split('\n');
+            result += '<ol>';
+            for (var j = 0; j < items.length; j++) {
+                if (items[j].trim()) result += '<li>' + items[j].replace(/^\d+[\.\)]\s*/, '') + '</li>';
+            }
+            result += '</ol>';
+        } else {
+            result += '<p>' + para.replace(/\n/g, '<br>') + '</p>';
         }
-        if (/^\d+[\.\)]\s/.test(para.trim())) {
-            const items = para.split('\n').filter(item => item.trim());
-            return '<ol>' + items.map(item => `<li>${item.replace(/^\d+[\.\)]\s*/, '')}</li>`).join('') + '</ol>';
-        }
-        if (para.includes(':') && para.indexOf(':') < 40 && !para.includes('\n')) {
-            const parts = para.split(':');
-            return `<h4>${parts[0].trim()}</h4><p>${parts.slice(1).join(':').trim()}</p>`;
-        }
-        return `<p>${para.replace(/\n/g, '<br>')}</p>`;
-    }).join('');
+    }
+    return result;
 }
 
 function updateNavButtons() {
     if (!prevSectionBtn || !nextSectionBtn || currentChapter === null) return;
-    const chapter = window.chapters[currentChapter];
-    prevSectionBtn.disabled = currentSection === 0;
-    nextSectionBtn.disabled = currentSection === chapter.sections.length - 1;
+    var len = window.chapters[currentChapter].sections.length;
+    prevSectionBtn.disabled = (currentSection === 0);
+    nextSectionBtn.disabled = (currentSection === len - 1);
 }
 
-// ===== Utility Actions =====
+// ===== Events & Utilities =====
 function navigatePrev() { if (currentSection > 0) showSection(currentSection - 1); }
 function navigateNext() {
     if (currentChapter !== null && currentSection < window.chapters[currentChapter].sections.length - 1) {
@@ -241,83 +241,19 @@ function navigateNext() {
 }
 
 function toggleSidebar() {
-    if (!sidebar || !sidebarOverlay || !menuToggle) return;
+    if (!sidebar || !sidebarOverlay) return;
     sidebar.classList.toggle('open');
     sidebarOverlay.classList.toggle('active');
-    menuToggle.classList.toggle('active');
 }
 
 function closeSidebar() {
-    if (!sidebar || !sidebarOverlay || !menuToggle) return;
-    sidebar.classList.remove('open');
-    sidebarOverlay.classList.remove('active');
-    menuToggle.classList.remove('active');
+    if (sidebar) sidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
 }
 
-function performSearch() {
-    const query = searchInput.value.trim().toLowerCase();
-    if (!query || !window.chapters) return;
-
-    const results = [];
-    window.chapters.forEach((chapter, chapterIndex) => {
-        chapter.sections.forEach((section, sectionIndex) => {
-            if (section.title.toLowerCase().includes(query) || section.content.toLowerCase().includes(query)) {
-                results.push({
-                    chapterIndex, sectionIndex,
-                    chapterTitle: chapter.title,
-                    sectionTitle: section.title,
-                    snippet: getSnippet(section.content, query)
-                });
-            }
-        });
-    });
-    displaySearchResults(results, query);
-}
-
-function getSnippet(content, query) {
-    const lContent = content.toLowerCase();
-    const idx = lContent.indexOf(query);
-    const start = Math.max(0, idx - 40);
-    const end = Math.min(content.length, idx + query.length + 60);
-    let snippet = content.substring(start, end);
-    if (start > 0) snippet = '...' + snippet;
-    if (end < content.length) snippet = snippet + '...';
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return snippet.replace(regex, '<span class="highlight">$1</span>');
-}
-
-function displaySearchResults(results, query) {
-    if (welcomeScreen) welcomeScreen.style.display = 'none';
-    if (contentDisplay) contentDisplay.style.display = 'none';
-    if (searchResults) searchResults.style.display = 'block';
-    if (breadcrumb) breadcrumb.style.display = 'none';
-
-    const list = document.getElementById('searchResultsList');
-    if (!list) return;
-
-    if (results.length === 0) {
-        list.innerHTML = `<p style="text-align:center;padding:2rem;">"${query}" 검색 결과가 없습니다.</p>`;
-    } else {
-        list.innerHTML = results.map(r => `
-            <div class="search-result-item" onclick="goToResult(${r.chapterIndex}, ${r.sectionIndex})">
-                <h4>${r.chapterTitle} › ${r.sectionTitle}</h4>
-                <p>${r.snippet}</p>
-            </div>
-        `).join('');
-    }
-    closeSidebar();
-    window.scrollTo(0, 0);
-}
-
-function goToResult(cIdx, sIdx) {
-    selectChapter(cIdx);
-    setTimeout(() => showSection(sIdx), 150);
-}
-
-// ===== State Management =====
 function toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
+    var isDark = document.body.classList.contains('dark-mode');
     if (document.getElementById('darkIcon')) document.getElementById('darkIcon').style.display = isDark ? 'none' : 'block';
     if (document.getElementById('lightIcon')) document.getElementById('lightIcon').style.display = isDark ? 'block' : 'none';
     storage.setItem('darkMode', isDark);
@@ -333,68 +269,102 @@ function loadDarkModePreference() {
 
 function setFontSize(size) {
     document.body.classList.remove('font-small', 'font-medium', 'font-large');
-    document.body.classList.add(`font-${size}`);
-    document.querySelectorAll('.font-size-options button').forEach(btn => btn.classList.toggle('active', btn.dataset.size === size));
+    document.body.classList.add('font-' + size);
     storage.setItem('fontSize', size);
+    if (fontSizePanel) fontSizePanel.style.display = 'none';
 }
 
 function loadFontSizePreference() {
     setFontSize(storage.getItem('fontSize') || 'medium');
 }
 
-function toggleBookmark() {
-    if (currentChapter === null) return;
-    const id = `${currentChapter}-${currentSection}`;
-    const idx = bookmarks.findIndex(b => b.id === id);
-    if (idx >= 0) bookmarks.splice(idx, 1);
-    else bookmarks.push({ id, chapterIndex: currentChapter, sectionIndex: currentSection, title: window.chapters[currentChapter].sections[currentSection].title });
-    storage.setItem('katusaBookmarks', JSON.stringify(bookmarks));
-    updateBookmarkBtn();
-    updateBookmarkList();
-}
-
 function updateBookmarkBtn() {
     if (currentChapter === null || !bookmarkChapterBtn) return;
-    const isBookmarked = bookmarks.some(b => b.id === `${currentChapter}-${currentSection}`);
+    var id = currentChapter + '-' + currentSection;
+    var isBookmarked = false;
+    for (var i = 0; i < bookmarks.length; i++) { if (bookmarks[i].id === id) isBookmarked = true; }
     bookmarkChapterBtn.classList.toggle('active', isBookmarked);
 }
 
 function updateBookmarkList() {
-    const list = document.getElementById('bookmarkList');
+    var list = document.getElementById('bookmarkList');
     if (!list) return;
-    if (bookmarks.length === 0) { list.innerHTML = '<li class="empty-bookmark">목록 없음</li>'; return; }
-    list.innerHTML = bookmarks.map(b => `<li onclick="goToResult(${b.chapterIndex}, ${b.sectionIndex})">${b.title}</li>`).join('');
+    if (bookmarks.length === 0) { list.innerHTML = '<li>목록 없음</li>'; return; }
+    var html = '';
+    for (var i = 0; i < bookmarks.length; i++) {
+        var b = bookmarks[i];
+        html += '<li onclick="goToResult(' + b.chapterIndex + ',' + b.sectionIndex + ')">' + b.title + '</li>';
+    }
+    list.innerHTML = html;
 }
 
-// ===== UI Logic =====
+function goToResult(c, s) { selectChapter(c); setTimeout(function () { showSection(s); }, 150); }
+
 function handleScroll() {
-    if (!scrollTopBtn || !readingProgress) return;
-    scrollTopBtn.classList.toggle('visible', window.scrollY > 300);
-    const winScroll = document.documentElement.scrollTop;
-    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    readingProgress.style.width = ((winScroll / height) * 100) + '%';
+    if (!scrollTopBtn) return;
+    scrollTopBtn.classList.toggle('visible', window.pageYOffset > 300);
 }
 
 function setupEventListeners() {
     if (searchBtn) searchBtn.onclick = performSearch;
-    if (searchInput) searchInput.onkeypress = (e) => { if (e.key === 'Enter') performSearch(); };
     if (darkModeToggle) darkModeToggle.onclick = toggleDarkMode;
     if (menuToggle) menuToggle.onclick = toggleSidebar;
     if (sidebarOverlay) sidebarOverlay.onclick = closeSidebar;
-    if (scrollTopBtn) scrollTopBtn.onclick = () => window.scrollTo(0, 0);
-    if (fontSizeToggle) fontSizeToggle.onclick = () => { if (fontSizePanel) fontSizePanel.style.display = fontSizePanel.style.display === 'block' ? 'none' : 'block'; };
-    if (printBtn) printBtn.onclick = () => window.print();
+    if (scrollTopBtn) scrollTopBtn.onclick = function () { window.scrollTo(0, 0); };
+    if (fontSizeToggle) fontSizeToggle.onclick = function () {
+        if (fontSizePanel) fontSizePanel.style.display = (fontSizePanel.style.display === 'block' ? 'none' : 'block');
+    };
     if (bookmarkChapterBtn) bookmarkChapterBtn.onclick = toggleBookmark;
     if (prevSectionBtn) prevSectionBtn.onclick = navigatePrev;
     if (nextSectionBtn) nextSectionBtn.onclick = navigateNext;
 
     window.onscroll = handleScroll;
-
-    document.addEventListener('click', (e) => {
-        if (fontSizePanel && fontSizePanel.style.display === 'block' && !fontSizePanel.contains(e.target) && e.target !== fontSizeToggle) {
-            fontSizePanel.style.display = 'none';
-        }
-    });
 }
 
-document.addEventListener('DOMContentLoaded', init);
+function performSearch() {
+    var q = searchInput.value.trim().toLowerCase();
+    if (!q || !window.chapters) return;
+    var results = [];
+    for (var i = 0; i < window.chapters.length; i++) {
+        for (var j = 0; j < window.chapters[i].sections.length; j++) {
+            var s = window.chapters[i].sections[j];
+            if (s.title.toLowerCase().indexOf(q) > -1 || s.content.toLowerCase().indexOf(q) > -1) {
+                results.push({ ci: i, si: j, ct: window.chapters[i].title, st: s.title });
+            }
+        }
+    }
+    displaySearchResults(results, q);
+}
+
+function displaySearchResults(res, q) {
+    if (welcomeScreen) welcomeScreen.style.display = 'none';
+    if (contentDisplay) contentDisplay.style.display = 'none';
+    if (searchResults) searchResults.style.display = 'block';
+    if (breadcrumb) breadcrumb.style.display = 'none';
+    var list = document.getElementById('searchResultsList');
+    if (!list) return;
+    if (res.length === 0) { list.innerHTML = '<p>결과 없음</p>'; }
+    else {
+        var html = '';
+        for (var i = 0; i < res.length; i++) {
+            html += '<div class="search-result-item" onclick="goToResult(' + res[i].ci + ',' + res[i].si + ')">' +
+                '<h4>' + res[i].ct + ' > ' + res[i].st + '</h4></div>';
+        }
+        list.innerHTML = html;
+    }
+    closeSidebar();
+}
+
+function toggleBookmark() {
+    if (currentChapter === null) return;
+    var id = currentChapter + '-' + currentSection;
+    var idx = -1;
+    for (var i = 0; i < bookmarks.length; i++) { if (bookmarks[i].id === id) idx = i; }
+    if (idx > -1) bookmarks.splice(idx, 1);
+    else bookmarks.push({ id: id, chapterIndex: currentChapter, sectionIndex: currentSection, title: window.chapters[currentChapter].sections[currentSection].title });
+    storage.setItem('katusaBookmarks', JSON.stringify(bookmarks));
+    updateBookmarkBtn();
+    updateBookmarkList();
+}
+
+window.onload = init;
