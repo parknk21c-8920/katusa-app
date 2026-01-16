@@ -1,7 +1,33 @@
 // ===== App State =====
 let currentChapter = null;
 let currentSection = null;
-let bookmarks = JSON.parse(localStorage.getItem('katusaBookmarks')) || [];
+let bookmarks = [];
+
+// LocalStorage safety check (fixes KakaoTalk/Mobile browser "SecurityError")
+const storage = {
+    getItem: (key) => {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    },
+    setItem: (key, value) => {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            // fail silently
+        }
+    }
+};
+
+// Load initial bookmarks
+try {
+    const saved = storage.getItem('katusaBookmarks');
+    bookmarks = saved ? JSON.parse(saved) : [];
+} catch (e) {
+    bookmarks = [];
+}
 
 // ===== DOM Elements =====
 const chapterList = document.getElementById('chapterList');
@@ -48,93 +74,99 @@ const chapterDescriptions = [
 
 // ===== Initialize App =====
 function init() {
-    renderChapterList();
-    renderQuickNav();
-    setupEventListeners();
-    loadDarkModePreference();
-    loadFontSizePreference();
-    updateBookmarkList();
-    calculateTotalSections();
+    try {
+        renderChapterList();
+        renderQuickNav();
+        setupEventListeners();
+        loadDarkModePreference();
+        loadFontSizePreference();
+        updateBookmarkList();
+        calculateTotalSections();
+    } catch (err) {
+        console.warn("Init Warning:", err);
+    }
 
-    // Hide loading screen after content is ready
+    // Safety check: hide loading screen regardless
     setTimeout(() => {
-        loadingScreen.classList.add('hidden');
-    }, 800);
+        if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 500);
+        }
+    }, 1000);
 }
 
-// ===== Render Chapter List in Sidebar =====
+// ===== Render Functions =====
 function renderChapterList() {
-    chapterList.innerHTML = chapters.map((chapter, index) => `
+    if (!chapterList || !window.chapters) return;
+    chapterList.innerHTML = window.chapters.map((chapter, index) => `
         <li class="chapter-item">
             <button class="chapter-btn" onclick="selectChapter(${index})" data-chapter="${index}">
                 <span class="chapter-icon">${chapterIcons[index] || '📄'}</span>
-                <span>${chapter.title}</span>
+                <span class="chapter-title-text">${chapter.title}</span>
                 <span class="chapter-number">${chapter.sections.length}</span>
             </button>
         </li>
     `).join('');
 }
 
-// ===== Render Quick Navigation =====
 function renderQuickNav() {
-    quickNavGrid.innerHTML = chapters.map((chapter, index) => `
+    if (!quickNavGrid || !window.chapters) return;
+    quickNavGrid.innerHTML = window.chapters.map((chapter, index) => `
         <button class="quick-btn" onclick="selectChapter(${index})">
             <span class="icon">${chapterIcons[index] || '📄'}</span>
-            <span>${chapter.title.replace(/\(.*\)/, '').trim()}</span>
+            <span>${chapter.title.split('(')[0].trim()}</span>
         </button>
     `).join('');
 }
 
-// ===== Calculate Total Sections =====
 function calculateTotalSections() {
-    const total = chapters.reduce((sum, ch) => sum + ch.sections.length, 0);
-    document.getElementById('totalSections').textContent = total;
+    const el = document.getElementById('totalSections');
+    if (!el || !window.chapters) return;
+    const total = window.chapters.reduce((sum, ch) => sum + ch.sections.length, 0);
+    el.textContent = total;
 }
 
-// ===== Select Chapter =====
+// ===== Main Actions =====
 function selectChapter(index) {
+    if (!window.chapters || !window.chapters[index]) return;
+
     currentChapter = index;
     currentSection = 0;
 
-    // Update active state in sidebar
+    // Sidebar Active State
     document.querySelectorAll('.chapter-btn').forEach((btn, i) => {
         btn.classList.toggle('active', i === index);
     });
 
-    // Show content display, hide welcome screen
-    welcomeScreen.style.display = 'none';
-    searchResults.style.display = 'none';
-    contentDisplay.style.display = 'block';
+    // Toggle Views
+    if (welcomeScreen) welcomeScreen.style.display = 'none';
+    if (searchResults) searchResults.style.display = 'none';
+    if (contentDisplay) contentDisplay.style.display = 'block';
 
-    // Update chapter title and description
-    chapterTitle.textContent = chapters[index].title;
-    chapterDesc.textContent = chapterDescriptions[index] || '';
+    // Update Titles
+    if (chapterTitle) chapterTitle.textContent = window.chapters[index].title;
+    if (chapterDesc) chapterDesc.textContent = chapterDescriptions[index] || '';
 
-    // Update breadcrumb
-    breadcrumb.style.display = 'flex';
-    breadcrumbChapter.textContent = chapters[index].title;
-    breadcrumbSep2.style.display = 'none';
-    breadcrumbSection.textContent = '';
+    // Breadcrumb
+    if (breadcrumb) breadcrumb.style.display = 'flex';
+    if (breadcrumbChapter) breadcrumbChapter.textContent = window.chapters[index].title;
+    if (breadcrumbSep2) breadcrumbSep2.style.display = 'none';
+    if (breadcrumbSection) breadcrumbSection.textContent = '';
 
-    // Update bookmark button
     updateBookmarkBtn();
-
-    // Render section buttons
     renderSectionButtons(index);
-
-    // Show first section
     showSection(0);
-
-    // Close sidebar on mobile
     closeSidebar();
 
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Reset Scroll - Simple version for mobile compatibility
+    window.scrollTo(0, 0);
 }
 
-// ===== Render Section Buttons =====
 function renderSectionButtons(chapterIndex) {
-    const chapter = chapters[chapterIndex];
+    if (!sectionButtons || !window.chapters[chapterIndex]) return;
+    const chapter = window.chapters[chapterIndex];
     sectionButtons.innerHTML = chapter.sections.map((section, index) => `
         <button class="section-btn ${index === 0 ? 'active' : ''}" onclick="showSection(${index})" data-section="${index}">
             ${section.title}
@@ -142,375 +174,227 @@ function renderSectionButtons(chapterIndex) {
     `).join('');
 }
 
-// ===== Show Section Content =====
 function showSection(index) {
-    currentSection = index;
-    const chapter = chapters[currentChapter];
-    const section = chapter.sections[index];
+    if (currentChapter === null || !window.chapters[currentChapter].sections[index]) return;
 
-    // Update active button
+    currentSection = index;
+    const section = window.chapters[currentChapter].sections[index];
+
+    // Buttons Active State
     document.querySelectorAll('.section-btn').forEach((btn, i) => {
         btn.classList.toggle('active', i === index);
     });
 
-    // Update breadcrumb
-    breadcrumbSep2.style.display = 'inline';
-    breadcrumbSection.textContent = section.title;
+    // Breadcrumb Section
+    if (breadcrumbSep2) breadcrumbSep2.style.display = 'inline';
+    if (breadcrumbSection) breadcrumbSection.textContent = section.title;
 
-    // Render section content with animation
-    sectionContent.style.opacity = '0';
-    setTimeout(() => {
+    // Content Display
+    if (sectionContent) {
         sectionContent.innerHTML = `
             <h3>${section.title}</h3>
             <div class="section-text">${formatContent(section.content)}</div>
         `;
-        sectionContent.style.opacity = '1';
-    }, 150);
+    }
 
-    // Update navigation buttons
     updateNavButtons();
 
-    // Scroll section into view
-    sectionContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// ===== Update Navigation Buttons =====
-function updateNavButtons() {
-    const chapter = chapters[currentChapter];
-    prevSectionBtn.disabled = currentSection === 0;
-    nextSectionBtn.disabled = currentSection === chapter.sections.length - 1;
-}
-
-// ===== Navigate Sections =====
-function navigatePrev() {
-    if (currentSection > 0) {
-        showSection(currentSection - 1);
+    // Jump to content top (safe version)
+    if (contentDisplay) {
+        contentDisplay.scrollIntoView();
     }
 }
 
-function navigateNext() {
-    const chapter = chapters[currentChapter];
-    if (currentSection < chapter.sections.length - 1) {
-        showSection(currentSection + 1);
-    }
-}
-
-// ===== Format Content =====
 function formatContent(content) {
     if (!content) return '<p>내용이 없습니다.</p>';
-
-    // Split by double newlines for paragraphs
     const paragraphs = content.split('\n\n');
     return paragraphs.map(para => {
-        // Check if it starts with a bullet point
         if (para.trim().startsWith('-') || para.trim().startsWith('•')) {
             const items = para.split('\n').filter(item => item.trim());
             return '<ul>' + items.map(item => `<li>${item.replace(/^[-•]\s*/, '')}</li>`).join('') + '</ul>';
         }
-        // Check if it's a numbered list
         if (/^\d+[\.\)]\s/.test(para.trim())) {
             const items = para.split('\n').filter(item => item.trim());
             return '<ol>' + items.map(item => `<li>${item.replace(/^\d+[\.\)]\s*/, '')}</li>`).join('') + '</ol>';
         }
-        // Check if it's a header-like line
-        if (para.includes(':') && para.indexOf(':') < 30 && !para.includes('\n')) {
-            const [header, ...rest] = para.split(':');
-            return `<h4>${header.trim()}</h4><p>${rest.join(':').trim()}</p>`;
+        if (para.includes(':') && para.indexOf(':') < 40 && !para.includes('\n')) {
+            const parts = para.split(':');
+            return `<h4>${parts[0].trim()}</h4><p>${parts.slice(1).join(':').trim()}</p>`;
         }
-        // Regular paragraph
         return `<p>${para.replace(/\n/g, '<br>')}</p>`;
     }).join('');
 }
 
-// ===== Show Welcome Screen =====
-function showWelcome() {
-    currentChapter = null;
-    currentSection = null;
-
-    welcomeScreen.style.display = 'block';
-    contentDisplay.style.display = 'none';
-    searchResults.style.display = 'none';
-    breadcrumb.style.display = 'none';
-
-    document.querySelectorAll('.chapter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
+function updateNavButtons() {
+    if (!prevSectionBtn || !nextSectionBtn || currentChapter === null) return;
+    const chapter = window.chapters[currentChapter];
+    prevSectionBtn.disabled = currentSection === 0;
+    nextSectionBtn.disabled = currentSection === chapter.sections.length - 1;
 }
 
-// ===== Search Functionality =====
-function performSearch() {
-    const query = searchInput.value.trim().toLowerCase();
-    if (!query) return;
-
-    const results = [];
-
-    chapters.forEach((chapter, chapterIndex) => {
-        chapter.sections.forEach((section, sectionIndex) => {
-            if (section.title.toLowerCase().includes(query) ||
-                section.content.toLowerCase().includes(query)) {
-                const snippet = getSnippet(section.content, query);
-                results.push({
-                    chapterIndex,
-                    sectionIndex,
-                    chapterTitle: chapter.title,
-                    sectionTitle: section.title,
-                    snippet
-                });
-            }
-        });
-    });
-
-    displaySearchResults(results, query);
-}
-
-// ===== Get Snippet Around Search Term =====
-function getSnippet(content, query) {
-    const lowerContent = content.toLowerCase();
-    const index = lowerContent.indexOf(query);
-    if (index === -1) return content.substring(0, 150) + '...';
-
-    const start = Math.max(0, index - 50);
-    const end = Math.min(content.length, index + query.length + 100);
-    let snippet = content.substring(start, end);
-
-    if (start > 0) snippet = '...' + snippet;
-    if (end < content.length) snippet = snippet + '...';
-
-    // Highlight the query
-    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
-    snippet = snippet.replace(regex, '<span class="highlight">$1</span>');
-
-    return snippet;
-}
-
-function escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// ===== Display Search Results =====
-function displaySearchResults(results, query) {
-    welcomeScreen.style.display = 'none';
-    contentDisplay.style.display = 'none';
-    searchResults.style.display = 'block';
-    breadcrumb.style.display = 'none';
-
-    const resultsList = document.getElementById('searchResultsList');
-
-    if (results.length === 0) {
-        resultsList.innerHTML = `
-            <div style="text-align: center; padding: 3rem;">
-                <p style="font-size: 3rem; margin-bottom: 1rem;">🔍</p>
-                <p style="color: var(--text-secondary);">"${query}"에 대한 검색 결과가 없습니다.</p>
-            </div>
-        `;
-        return;
-    }
-
-    resultsList.innerHTML = `
-        <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.95rem;">
-            "<strong>${query}</strong>"에 대해 <strong>${results.length}개</strong>의 결과를 찾았습니다.
-        </p>
-        ${results.map(result => `
-            <div class="search-result-item" onclick="goToResult(${result.chapterIndex}, ${result.sectionIndex})">
-                <h4>${result.chapterTitle} › ${result.sectionTitle}</h4>
-                <p>${result.snippet}</p>
-            </div>
-        `).join('')}
-    `;
-
-    // Close sidebar on mobile
-    closeSidebar();
-}
-
-// ===== Close Search Results =====
-function closeSearchResults() {
-    showWelcome();
-    searchInput.value = '';
-}
-
-// ===== Go to Search Result =====
-function goToResult(chapterIndex, sectionIndex) {
-    selectChapter(chapterIndex);
-    setTimeout(() => showSection(sectionIndex), 150);
-}
-
-// ===== Dark Mode Toggle =====
-function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-
-    document.getElementById('darkIcon').style.display = isDark ? 'none' : 'block';
-    document.getElementById('lightIcon').style.display = isDark ? 'block' : 'none';
-
-    localStorage.setItem('darkMode', isDark);
-}
-
-// ===== Load Dark Mode Preference =====
-function loadDarkModePreference() {
-    const isDark = localStorage.getItem('darkMode') === 'true';
-    if (isDark) {
-        document.body.classList.add('dark-mode');
-        document.getElementById('darkIcon').style.display = 'none';
-        document.getElementById('lightIcon').style.display = 'block';
+// ===== Utility Actions =====
+function navigatePrev() { if (currentSection > 0) showSection(currentSection - 1); }
+function navigateNext() {
+    if (currentChapter !== null && currentSection < window.chapters[currentChapter].sections.length - 1) {
+        showSection(currentSection + 1);
     }
 }
 
-// ===== Font Size Controls =====
-function toggleFontSizePanel() {
-    const isVisible = fontSizePanel.style.display === 'block';
-    fontSizePanel.style.display = isVisible ? 'none' : 'block';
-}
-
-function setFontSize(size) {
-    document.body.classList.remove('font-small', 'font-medium', 'font-large');
-    document.body.classList.add(`font-${size}`);
-
-    document.querySelectorAll('.font-size-options button').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.size === size);
-    });
-
-    localStorage.setItem('fontSize', size);
-    fontSizePanel.style.display = 'none';
-}
-
-function loadFontSizePreference() {
-    const size = localStorage.getItem('fontSize') || 'medium';
-    setFontSize(size);
-}
-
-// ===== Bookmark Functions =====
-function toggleBookmark() {
-    if (currentChapter === null) return;
-
-    const bookmarkId = `${currentChapter}-${currentSection}`;
-    const existingIndex = bookmarks.findIndex(b => b.id === bookmarkId);
-
-    if (existingIndex >= 0) {
-        bookmarks.splice(existingIndex, 1);
-    } else {
-        bookmarks.push({
-            id: bookmarkId,
-            chapterIndex: currentChapter,
-            sectionIndex: currentSection,
-            title: chapters[currentChapter].sections[currentSection].title
-        });
-    }
-
-    localStorage.setItem('katusaBookmarks', JSON.stringify(bookmarks));
-    updateBookmarkBtn();
-    updateBookmarkList();
-}
-
-function updateBookmarkBtn() {
-    if (currentChapter === null) return;
-
-    const bookmarkId = `${currentChapter}-${currentSection}`;
-    const isBookmarked = bookmarks.some(b => b.id === bookmarkId);
-    bookmarkChapterBtn.classList.toggle('active', isBookmarked);
-}
-
-function updateBookmarkList() {
-    const list = document.getElementById('bookmarkList');
-
-    if (bookmarks.length === 0) {
-        list.innerHTML = '<li class="empty-bookmark">저장된 북마크가 없습니다</li>';
-        return;
-    }
-
-    list.innerHTML = bookmarks.map(b => `
-        <li onclick="goToResult(${b.chapterIndex}, ${b.sectionIndex})">${b.title}</li>
-    `).join('');
-}
-
-// ===== Sidebar Controls =====
 function toggleSidebar() {
+    if (!sidebar || !sidebarOverlay || !menuToggle) return;
     sidebar.classList.toggle('open');
     sidebarOverlay.classList.toggle('active');
     menuToggle.classList.toggle('active');
 }
 
 function closeSidebar() {
+    if (!sidebar || !sidebarOverlay || !menuToggle) return;
     sidebar.classList.remove('open');
     sidebarOverlay.classList.remove('active');
     menuToggle.classList.remove('active');
 }
 
-// ===== Scroll Functions =====
-function handleScroll() {
-    // Scroll to top button visibility
-    const shouldShow = window.scrollY > 300;
-    scrollTopBtn.classList.toggle('visible', shouldShow);
+function performSearch() {
+    const query = searchInput.value.trim().toLowerCase();
+    if (!query || !window.chapters) return;
 
-    // Reading progress
+    const results = [];
+    window.chapters.forEach((chapter, chapterIndex) => {
+        chapter.sections.forEach((section, sectionIndex) => {
+            if (section.title.toLowerCase().includes(query) || section.content.toLowerCase().includes(query)) {
+                results.push({
+                    chapterIndex, sectionIndex,
+                    chapterTitle: chapter.title,
+                    sectionTitle: section.title,
+                    snippet: getSnippet(section.content, query)
+                });
+            }
+        });
+    });
+    displaySearchResults(results, query);
+}
+
+function getSnippet(content, query) {
+    const lContent = content.toLowerCase();
+    const idx = lContent.indexOf(query);
+    const start = Math.max(0, idx - 40);
+    const end = Math.min(content.length, idx + query.length + 60);
+    let snippet = content.substring(start, end);
+    if (start > 0) snippet = '...' + snippet;
+    if (end < content.length) snippet = snippet + '...';
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return snippet.replace(regex, '<span class="highlight">$1</span>');
+}
+
+function displaySearchResults(results, query) {
+    if (welcomeScreen) welcomeScreen.style.display = 'none';
+    if (contentDisplay) contentDisplay.style.display = 'none';
+    if (searchResults) searchResults.style.display = 'block';
+    if (breadcrumb) breadcrumb.style.display = 'none';
+
+    const list = document.getElementById('searchResultsList');
+    if (!list) return;
+
+    if (results.length === 0) {
+        list.innerHTML = `<p style="text-align:center;padding:2rem;">"${query}" 검색 결과가 없습니다.</p>`;
+    } else {
+        list.innerHTML = results.map(r => `
+            <div class="search-result-item" onclick="goToResult(${r.chapterIndex}, ${r.sectionIndex})">
+                <h4>${r.chapterTitle} › ${r.sectionTitle}</h4>
+                <p>${r.snippet}</p>
+            </div>
+        `).join('');
+    }
+    closeSidebar();
+    window.scrollTo(0, 0);
+}
+
+function goToResult(cIdx, sIdx) {
+    selectChapter(cIdx);
+    setTimeout(() => showSection(sIdx), 150);
+}
+
+// ===== State Management =====
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    if (document.getElementById('darkIcon')) document.getElementById('darkIcon').style.display = isDark ? 'none' : 'block';
+    if (document.getElementById('lightIcon')) document.getElementById('lightIcon').style.display = isDark ? 'block' : 'none';
+    storage.setItem('darkMode', isDark);
+}
+
+function loadDarkModePreference() {
+    if (storage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+        if (document.getElementById('darkIcon')) document.getElementById('darkIcon').style.display = 'none';
+        if (document.getElementById('lightIcon')) document.getElementById('lightIcon').style.display = 'block';
+    }
+}
+
+function setFontSize(size) {
+    document.body.classList.remove('font-small', 'font-medium', 'font-large');
+    document.body.classList.add(`font-${size}`);
+    document.querySelectorAll('.font-size-options button').forEach(btn => btn.classList.toggle('active', btn.dataset.size === size));
+    storage.setItem('fontSize', size);
+}
+
+function loadFontSizePreference() {
+    setFontSize(storage.getItem('fontSize') || 'medium');
+}
+
+function toggleBookmark() {
+    if (currentChapter === null) return;
+    const id = `${currentChapter}-${currentSection}`;
+    const idx = bookmarks.findIndex(b => b.id === id);
+    if (idx >= 0) bookmarks.splice(idx, 1);
+    else bookmarks.push({ id, chapterIndex: currentChapter, sectionIndex: currentSection, title: window.chapters[currentChapter].sections[currentSection].title });
+    storage.setItem('katusaBookmarks', JSON.stringify(bookmarks));
+    updateBookmarkBtn();
+    updateBookmarkList();
+}
+
+function updateBookmarkBtn() {
+    if (currentChapter === null || !bookmarkChapterBtn) return;
+    const isBookmarked = bookmarks.some(b => b.id === `${currentChapter}-${currentSection}`);
+    bookmarkChapterBtn.classList.toggle('active', isBookmarked);
+}
+
+function updateBookmarkList() {
+    const list = document.getElementById('bookmarkList');
+    if (!list) return;
+    if (bookmarks.length === 0) { list.innerHTML = '<li class="empty-bookmark">목록 없음</li>'; return; }
+    list.innerHTML = bookmarks.map(b => `<li onclick="goToResult(${b.chapterIndex}, ${b.sectionIndex})">${b.title}</li>`).join('');
+}
+
+// ===== UI Logic =====
+function handleScroll() {
+    if (!scrollTopBtn || !readingProgress) return;
+    scrollTopBtn.classList.toggle('visible', window.scrollY > 300);
     const winScroll = document.documentElement.scrollTop;
     const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    const scrolled = (winScroll / height) * 100;
-    readingProgress.style.width = scrolled + '%';
+    readingProgress.style.width = ((winScroll / height) * 100) + '%';
 }
 
-function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ===== Print Function =====
-function printContent() {
-    window.print();
-}
-
-// ===== Setup Event Listeners =====
 function setupEventListeners() {
-    // Search
-    searchBtn.addEventListener('click', performSearch);
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
-    });
-    closeSearchBtn.addEventListener('click', closeSearchResults);
+    if (searchBtn) searchBtn.onclick = performSearch;
+    if (searchInput) searchInput.onkeypress = (e) => { if (e.key === 'Enter') performSearch(); };
+    if (darkModeToggle) darkModeToggle.onclick = toggleDarkMode;
+    if (menuToggle) menuToggle.onclick = toggleSidebar;
+    if (sidebarOverlay) sidebarOverlay.onclick = closeSidebar;
+    if (scrollTopBtn) scrollTopBtn.onclick = () => window.scrollTo(0, 0);
+    if (fontSizeToggle) fontSizeToggle.onclick = () => { if (fontSizePanel) fontSizePanel.style.display = fontSizePanel.style.display === 'block' ? 'none' : 'block'; };
+    if (printBtn) printBtn.onclick = () => window.print();
+    if (bookmarkChapterBtn) bookmarkChapterBtn.onclick = toggleBookmark;
+    if (prevSectionBtn) prevSectionBtn.onclick = navigatePrev;
+    if (nextSectionBtn) nextSectionBtn.onclick = navigateNext;
 
-    // Dark mode
-    darkModeToggle.addEventListener('click', toggleDarkMode);
+    window.onscroll = handleScroll;
 
-    // Menu toggle
-    menuToggle.addEventListener('click', toggleSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-
-    // Scroll
-    window.addEventListener('scroll', handleScroll);
-    scrollTopBtn.addEventListener('click', scrollToTop);
-
-    // Font size
-    fontSizeToggle.addEventListener('click', toggleFontSizePanel);
-
-    // Print
-    printBtn.addEventListener('click', printContent);
-
-    // Bookmark
-    bookmarkChapterBtn.addEventListener('click', toggleBookmark);
-
-    // Navigation buttons
-    prevSectionBtn.addEventListener('click', navigatePrev);
-    nextSectionBtn.addEventListener('click', navigateNext);
-
-    // Close font panel when clicking outside
     document.addEventListener('click', (e) => {
-        if (!fontSizePanel.contains(e.target) && e.target !== fontSizeToggle) {
-            fontSizePanel.style.display = 'none';
-        }
-    });
-
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-
-        if (e.key === 'ArrowLeft' && currentChapter !== null) {
-            navigatePrev();
-        } else if (e.key === 'ArrowRight' && currentChapter !== null) {
-            navigateNext();
-        } else if (e.key === 'Escape') {
-            closeSidebar();
+        if (fontSizePanel && fontSizePanel.style.display === 'block' && !fontSizePanel.contains(e.target) && e.target !== fontSizeToggle) {
             fontSizePanel.style.display = 'none';
         }
     });
 }
 
-// ===== Initialize on DOM Ready =====
 document.addEventListener('DOMContentLoaded', init);
